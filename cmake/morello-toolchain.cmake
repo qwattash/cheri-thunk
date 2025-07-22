@@ -7,7 +7,7 @@ set(CHERI_SDK_BINDIR ${CHERI_SDK}/morello-sdk/bin)
 message(STATUS "CHERI_SDK ${CHERI_SDK}")
 
 set(CMAKE_SYSTEM_NAME FreeBSD)
-set(CMAKE_SYSTEM_PROCESSOR aarch64)
+set(CMAKE_SYSTEM_PROCESSOR aarch64c)
 
 set(triple aarch64-unknown-freebsd)
 set(CMAKE_C_COMPILER ${CHERI_SDK_BINDIR}/clang)
