@@ -27,29 +27,3 @@
 #define THUNK_TEMPLATE(tname) _THUNK_SYM(tname)
 #define THUNK_TEMPLATE_SIZE(tname) _THUNK_SZ_SYM(tname)
 #define	THUNK_PATCH_POINT(tname, name) _THUNK_PATCH(tname, name)
-
-#define	PATCH_INS(buffer, offset)               \
-        ((uint32_t *)((buffer) + (offset)))
-
-#define	PATCH_OFF(tramp, name)	({                      \
-        extern const int32_t patch_##tramp##_##name;    \
-        size + patch_##tramp##_##name;                  \
-})
-
-#define PATCH_MOV(buf, offset, value)               \
-        do {                                        \
-                uint32_t _value = (value);          \
-                _value = ((_value & 0xffff) << 5);  \
-                *PATCH_INS(buf, offset) |= _value;  \
-        } while (0)
-
-#define	PATCH_ADR(buf, offset, target)                  \
-        do {                                            \
-                int32_t _offset = (offset);             \
-                int32_t _value = (target) - _offset;    \
-                _value =                                \
-                        ((_value & 0x3) << 29) |        \
-                        ((_value & 0x1ffffc) << 3);     \
-                *PATCH_INS(buf, _offset) |= _value;     \
-        } while (0)
-

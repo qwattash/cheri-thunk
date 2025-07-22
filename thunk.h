@@ -8,7 +8,8 @@
  * Technology), and Capabilities Limited under Defense Advanced Research
  * Projects Agency (DARPA) Contract No. FA8750-24-C-B047 ("DEC").
  */
-
+#include <assert.h>
+#include <cheriintrin.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -26,11 +27,24 @@ typedef const uint8_t* thunk_token_t;
  */
 typedef struct {
         // XXX in debug mode, remember thunk data size
-        char *__inner;
+        void *__inner;
 } thunk_object_t;
 
-// #define thunk_object_unwrap(obj) (((thunk_object_t)(obj)).__inner)
+static inline thunk_object_t
+_thunk_object_wrap(void *ptr)
+{
+        thunk_object_t obj = { .__inner = ptr };
+
+        assert(cheri_is_valid(ptr) && "thunk_object_wrap: invalid pointer");
+        assert(cheri_is_sealed(ptr) && "thunk_object_wrap: unsealed pointer");
+        // assert(cheri_get_mode);
+
+        return (obj);
+}
+
 #define thunk_object_unwrap(obj) (((thunk_object_t *)&(obj))->__inner)
+#define thunk_object_wrap(ptr) _thunk_object_wrap((void *)ptr)
+#define THUNK_NULLOBJ (thunk_object_t){ .__inner = NULL }
 
 /**
  * Defines a shareability level for allocated memory.
@@ -74,9 +88,9 @@ struct thunk_class {
         /* Total size */
         size_t object_size;
         /* Constructor (runs in the thunk compartment) */
-        void (*ctor)();
+        void (*ctor)(void *);
         /* Destructor (runs in the thunk compartment) */
-        void (*dtor)();
+        void (*dtor)(void *);
         /* Resolved values for the thunk patch descriptors, matching order */
         thunk_reloc_data_t reloc_data[];
 };

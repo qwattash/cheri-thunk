@@ -54,7 +54,9 @@ thunk_xmalloc(size_t size)
         TAILQ_INSERT_HEAD(&block_list, blk, blk_link);
         pthread_mutex_unlock(&block_list_mutex);
 
-        return (cheri_perms_clear(blk->blk_root_cap, CHERI_PERM_SW_VMEM));
+        return (cheri_bounds_set_exact(
+            cheri_perms_clear(blk->blk_root_cap, CHERI_PERM_SW_VMEM),
+            size));
 }
 
 void

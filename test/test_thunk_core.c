@@ -11,6 +11,7 @@
 
 #include <assert.h>
 #include <cheriintrin.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "hello/hello.h"
@@ -27,9 +28,10 @@ main(int argc, char *argv[])
 
         const char *data = hello_invoke(h);
 
+        assert(cheri_is_valid(data) && "Invalid thunk result");
         assert((cheri_perms_get(data) & DATA_PERMS_MASK) == 0 &&
             "Thunk enforced wrong permission");
-        assert(strcmp(data, "Hello world!") == 0 && "Invalid thunk data");
+        assert(strcmp(data, "Hello World!") == 0 && "Invalid thunk data");
 
         return (0);
 }

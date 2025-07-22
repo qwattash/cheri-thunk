@@ -25,6 +25,6 @@ void hello_destroy(hello_object_t obj);
 static inline const char *
 hello_invoke(hello_object_t obj)
 {
-        return (obj._invoke());
+        return ((obj._invoke)());
 }
 

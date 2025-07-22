@@ -9,8 +9,6 @@
  * Projects Agency (DARPA) Contract No. FA8750-24-C-B047 ("DEC").
  */
 
-#include <assert.h>
-#include <cheriintrin.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -43,28 +41,32 @@ thunk_xfree(void *ptr)
 thunk_object_t
 thunk_malloc(struct thunk_class *tc)
 {
-        thunk_object_t obj = { .__inner = NULL };
-        char *thunk_buf;
+        struct thunk_metaclass *mc = tc->mc;
+        thunk_object_t obj = THUNK_NULLOBJ;
+        uintptr_t thunk_buf;
+        uintptr_t obj_data;
         thunk_jit_t obj_code;
-        char *obj_data;
 
         // XXX tc should be sealed and should be authorised here
 
+        assert(tc->object_size > mc->code_size &&
+            "Invalid thunk class, code size > object size");
         /* object_size must already include any representability padding */
-        thunk_buf = thunk_xmalloc(tc->object_size);
+        thunk_buf = (uintptr_t)thunk_xmalloc(tc->object_size);
 
         obj_code = (thunk_jit_t)cheri_bounds_set(thunk_buf, tc->mc->code_size);
         obj_data = thunk_buf + cheri_representable_length(tc->mc->code_size);
-        assert(obj_data - thunk_buf == tc->object_size &&
-            "Invalid thunk object size");
+        obj_data = cheri_bounds_set_exact(obj_data,
+            thunk_buf + cheri_length_get(thunk_buf) - obj_data);
         if (thunk_compile(obj_code, tc)) {
-                thunk_xfree(thunk_buf);
+                thunk_xfree((void *)thunk_buf);
                 goto out;
         }
 
-        // Run thunk constructor
+        if (tc->ctor)
+                tc->ctor((void *)obj_data);
 
-        obj.__inner = cheri_sentry_create(thunk_buf);
+        obj = thunk_object_wrap(thunk_arch_seal_object(thunk_buf));
 out:
         return (obj);
 }

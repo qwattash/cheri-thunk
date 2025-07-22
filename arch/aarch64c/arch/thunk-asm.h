@@ -39,4 +39,4 @@
         .section .rodata; .globl _THUNK_PATCH(tname, name); .align 2;  \
         .type _THUNK_PATCH(tname, name),#object;                       \
         .size _THUNK_PATCH(tname, name), 4;                            \
-        _THUNK_PATCH(tname, name): .word label - _THUNK_END_SYM(tname)
+        _THUNK_PATCH(tname, name): .word label - _THUNK_SYM(tname)

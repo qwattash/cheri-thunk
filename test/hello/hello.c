@@ -11,6 +11,7 @@
 
 #include <cheriintrin.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "hello.h"
 #include "arch/thunk-patch.h"
@@ -38,6 +39,17 @@ struct hello_data {
         char message[256];
 };
 
+static const char *default_message = "Hello World!";
+
+static void
+hello_ctor(void *obj_data)
+{
+        struct hello_data *data = obj_data;
+
+        strncpy(data->message, default_message, sizeof(data->message) - 1);
+        data->message[255] = '\0';
+}
+
 /*
  * XXX this could alternatively be done with a linker set?
  * there is a bunch of code here that could be generalised..
@@ -46,8 +58,8 @@ __attribute__((constructor))
 static void
 hello_init()
 {
-        const size_t data_align = cheri_representable_alignment_mask(
-            sizeof(struct hello_data));
+        const size_t data_align = ~cheri_representable_alignment_mask(
+            sizeof(struct hello_data)) + 1;
         size_t data_offset;
 
         hello_meta = thunk_level_malloc(sizeof(*hello_meta) +
@@ -57,7 +69,7 @@ hello_init()
         hello_meta->relocs_count = HELLO_NRELOCS;
         // Init thunk relocation descriptors
 #if defined(__aarch64__)
-        hello_meta->relocs[0].type = THUNK_REL_MOV_IMM;
+        hello_meta->relocs[0].type = THUNK_REL_ADR;
         hello_meta->relocs[0].offset = THUNK_PATCH_POINT(hello_thunk,
             data_offset);
 #endif
@@ -69,11 +81,13 @@ hello_init()
         hello_class->mc = hello_meta;
         hello_class->object_size = cheri_representable_length(
             data_offset + sizeof(struct hello_data));
-        hello_class->ctor = NULL;
+
+        hello_class->ctor = hello_ctor;
         hello_class->dtor = NULL;
         // Bind relocations to the actual values for this class.
 #if defined(__aarch64__)
-        hello_class->reloc_data[0].u32 = data_offset;
+        // XXX assert representable
+        hello_class->reloc_data[0].i32 = data_offset;
 #endif
 
 }

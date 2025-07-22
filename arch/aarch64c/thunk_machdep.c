@@ -37,13 +37,22 @@ thunk_compile(thunk_jit_t code_buf, const struct thunk_class *tc)
         memcpy(code_buf, mc->template, mc->code_size);
 
         while (index < mc->relocs_count) {
+                thunk_jit_t pp = patch_point(code_buf,
+                    mc->relocs[index].offset);
 
                 switch (mc->relocs[index].type) {
                 case THUNK_REL_MOV_IMM: {
-                        thunk_jit_t pp = patch_point(code_buf,
-                            mc->relocs[index].offset);
                         uint32_t value = tc->reloc_data[index].u32;
                         value = (value & 0xffff) << 5;
+                        *pp |= value;
+                        break;
+                }
+                case THUNK_REL_ADR: {
+                        // XXX assert representable distance
+                        int32_t value = (ptraddr_t)code_buf + (
+                            tc->reloc_data[index].i32 - (ptraddr_t)pp);
+                        value = ((value & 0x3) << 29) |
+                            ((value & 0x1ffffc) << 3);
                         *pp |= value;
                         break;
                 }
