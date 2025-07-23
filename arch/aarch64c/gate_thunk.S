@@ -24,23 +24,39 @@
   *  - No stack usage. If stack is used, it must be cleared.
   *  - No capabilities from the thunk may leak after return.
   *
+  * XXX-AM: Maybe we can optimise this to remove some instructions.
+  * - The token space may be allocated in the bottom 4G of AS,
+  *   so that we can use a 32bit relocation.
+  * - The token space may be aligned, at least as much as the
+  *   data type. Given that we must know the data type size
+  *   when we generate this code, we may omit some bits
+  *   from the relocation. If we further align the token space,
+  *   we may be able to cut even more.
+  *
   * The gate expects a token as its argument (c0) and returns a pointer.
-  * void *thunk_gate(thunk_token_t token) ;
+  * void *thunk_gate(thunk_token_t token);
   */
 THUNK(gate)
     // Check tag on token
     chktgd  c0
-    // TODO optimize
 
     // Patch 1-4: token space base address
+    // Note: While the token base address could be a full 64bit
+    // value, we assume that thunk tokens are always allocated
+    // in the user memory range in an 48bit virtual address space.
+    // As a result, the top 16 bits will always be zero.
+    // This saves us an instruction and a patch point for
+    // token_base_48.
 THUNK_PP_LABEL(gate, token_base_0)
     mov     x10, #0
 THUNK_PP_LABEL(gate, token_base_16)
     movk    x10, #0, lsl #16
 THUNK_PP_LABEL(gate, token_base_32)
     movk    x10, #0, lsl #32
+#ifdef THUNK_LARGE_TOKEN_SPACE
 THUNK_PP_LABEL(gate, token_base_48)
     movk    x10, #0, lsl #48
+#endif
 
     // Check that the token is in the right token space
     gcbase  x11, c0

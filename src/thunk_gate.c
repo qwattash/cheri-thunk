@@ -16,7 +16,7 @@
 #include <sys/queue.h>
 #include <cheri/cherireg.h>
 
-#include "thunk.h"
+#include "thunk-gate.h"
 
 /**
  * Private data associated to gate classes.
@@ -101,8 +101,6 @@ thunk_gate_create(size_t size)
                 thunk_level_free(gate_class);
                 return (gate);
         }
-        // We strip both SW_VMEM and EXECUTE.
-        // This assumes that there is no code within the thunk data.
         root_token = cheri_perms_and(gate_class->token_space,
                                      THUNK_TOKEN_MAX_PERMS);
         root_token = cheri_bounds_set_exact(root_token, size);
@@ -152,4 +150,20 @@ void
 thunk_gate_free_object(thunk_gate_t gate, thunk_object_t obj)
 {
 
+}
+
+bool thunk_gate_auth(thunk_object_t gobj)
+{
+#ifdef THUNK_AUTH_MODE_PERMS
+        void *inner = thunk_object_unwrap(gobj);
+
+        if (cheri_is_sealed(inner) &&
+            (cheri_perms_get(inner) & CHERI_PERM_SW_THUNK)) {
+                return (true);
+        }
+
+        return (false);
+#else
+#error "Unsupported thunk authentication mode"
+#endif
 }

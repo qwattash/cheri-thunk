@@ -16,6 +16,13 @@
 // BSD specific
 #include <machine/cherireg.h>
 
+#define assert_true(cond, msg) do {             \
+        if (!(cond)) {                          \
+                fprintf(stderr, "%s\n", (msg)); \
+                abort();                        \
+        }                                       \
+} while (0)
+
 #define assert_cap(cond, cap, msg) do {                                 \
         if (!(cond)) {                                                  \
                 fprintf(stderr, "%s: %#p\n", (msg), (cap));             \
@@ -36,12 +43,30 @@
         }                                                               \
 } while (0)
 
-#define assert_cap_perms(cap, expect, msg) do {                     \
+#define assert_cap_exact_perms(cap, expect, msg) do {               \
         if (cheri_perms_get((cap)) != (expect)) {                   \
                 fprintf(stderr, "%s: %#p perms:\n", (msg), (cap));  \
                 test_dump_perms(cap);                               \
                 abort();                                            \
         }                                                           \
+} while (0)
+
+#define assert_cap_perms_clear(cap, perms, msg) do {                    \
+        if (cheri_perms_get((cap)) & (perms)) {                         \
+                fprintf(stderr, "%s: %#p has permissions %s:\n",        \
+                    (msg), (cap), (#perms));                            \
+                test_dump_perms(cap);                                   \
+                abort();                                                \
+        }                                                               \
+} while (0)
+
+#define assert_cap_perms_set(cap, perms, msg) do {                      \
+        if ((cheri_perms_get((cap)) & (perms)) != (perms)) {            \
+                fprintf(stderr, "%s: %#p lacks permissions %s:\n",      \
+                    (msg), (cap), (#perms));                            \
+                test_dump_perms(cap);                                   \
+                abort();                                                \
+        }                                                               \
 } while (0)
 
 static inline void

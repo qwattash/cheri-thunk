@@ -12,6 +12,8 @@
 
 #include <stdint.h>
 
+#include <cheri/cherireg.h>
+
 struct thunk_class;
 
 /**
@@ -59,6 +61,29 @@ thunk_arch_seal_object(uintptr_t obj_ptr)
 {
         return ((void *)cheri_sentry_create(obj_ptr | 1));
 }
+
+#ifdef THUNK_AUTH_MODE_PERMS
+/**
+ * Software-defined permission bit that identifies trusted thunks.
+ *
+ * We use a SW bit because we can't rely on otypes existing.
+ * This is sub-optimal, because it means that the user MUST
+ * trust all thunks with this bit set, and we can't really have
+ * arbitrary thunk_metaclasses with user-defined code.
+ *
+ * XXX-AM: We need to hook system allocators and mmap to prevent
+ * anybody else from getting hold of CHERI_PERM_SW_THUNK...
+ *
+ * XXX-AM: It sure would be nice if somebody solved this.
+ */
+#define CHERI_PERM_SW_THUNK CHERI_PERM_SW2
+#else
+/**
+ * Who knows, do something weird, like using an HMAC
+ * challenge-response scheme...
+ */
+#error "Invalid thunk auth mode"
+#endif
 
 /**
  * Define the maximum permission allowed on the root thunk token.
