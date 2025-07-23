@@ -1,0 +1,118 @@
+/*-
+ * Copyright (c) 2025 Alfredo Mazzinghi
+ *
+ * SPDX-License-Identifier: BSD-2-Clause
+ *
+ * This software was developed by SRI International, the University of
+ * Cambridge Computer Laboratory (Department of Computer Science and
+ * Technology), and Capabilities Limited under Defense Advanced Research
+ * Projects Agency (DARPA) Contract No. FA8750-24-C-B047 ("DEC").
+ */
+
+#include <stdint.h>
+#include <stdlib.h>
+
+#include <sys/cdefs.h>
+
+#include "arch/thunk.h"
+
+typedef const uint8_t* thunk_token_t;
+
+/**
+ * Private type representing a thunk object.
+ *
+ * This maintains the invariant that the __inner pointer is always sealed.
+ * This prevents uncontrolled casts to different pointer types.
+ */
+typedef struct {
+        // XXX in debug mode, remember thunk data size
+        char *__inner;
+} thunk_object_t;
+
+// #define thunk_object_unwrap(obj) (((thunk_object_t)(obj)).__inner)
+#define thunk_object_unwrap(obj) (((thunk_object_t *)&(obj))->__inner)
+
+/**
+ * Defines a shareability level for allocated memory.
+ */
+enum thunk_level {
+        /* Compartment-private */
+        THUNK_LEVEL_PRIVATE,
+        /* Shareable */
+        THUNK_LEVEL_SHAREABLE,
+};
+
+typedef enum thunk_level thunk_level_t;
+
+/**
+ * A thunk metaclass describes the template block associated with a
+ * specific thunk class.
+ *
+ * Thunk metaclasses may be used to implement different semantics associated
+ * to data.
+ */
+struct thunk_metaclass {
+        /* Template code, not runnable */
+        thunk_template_t template;
+        /* Size of the code template block */
+        size_t code_size;
+        /* Number of thunk relocations */
+        unsigned int relocs_count;
+        /* Describe machine-dependent patch points within the template */
+        thunk_reloc_t relocs[];
+};
+
+/**
+ * A thunk class binds a specific metaclass to a type of data.
+ *
+ * The template operates on the data specified by the type by
+ * binding to the metaclass patch points.
+ */
+struct thunk_class {
+        /* Metaclass describing the template */
+        struct thunk_metaclass *mc;
+        /* Total size */
+        size_t object_size;
+        /* Constructor (runs in the thunk compartment) */
+        void (*ctor)();
+        /* Destructor (runs in the thunk compartment) */
+        void (*dtor)();
+        /* Resolved values for the thunk patch descriptors, matching order */
+        thunk_reloc_data_t reloc_data[];
+};
+
+/**
+ * Wrapper around the system malloc interface.
+ *
+ * This allocates memory subject to capability flow enforcement.
+ */
+void *thunk_level_malloc(size_t size, thunk_level_t level);
+
+/**
+ * Create an instance of the given thunk class.
+ *
+ * This creates a concrete thunk object with data associated and initialised.
+ */
+thunk_object_t thunk_malloc(struct thunk_class *tc);
+
+/**
+ * Destroy an instance of a thunk class.
+ *
+ * The thunk_object must be valid and sealed.
+ */
+void thunk_free(struct thunk_class *tc, thunk_object_t t_obj);
+
+/**
+ * Compile a thunk class into the code buffer of a thunk object.
+ *
+ * Note that the thunk allocation is always RWX.
+ */
+int thunk_compile(thunk_jit_t code_buf, const struct thunk_class *tc);
+
+/**
+ * Executable memory allocation hooks.
+ * These must be defined at link-time, the default weak symbols will abort();
+ */
+void *thunk_xmalloc(size_t size);
+void thunk_xfree(void *ptr);
+
