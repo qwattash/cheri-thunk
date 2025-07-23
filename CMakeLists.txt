@@ -7,9 +7,11 @@ add_compile_options(-std=c11)
 include_directories("${CMAKE_SOURCE_DIR}")
 include_directories(arch/${CMAKE_SYSTEM_PROCESSOR})
 
-add_library(${PROJECT_NAME} SHARED thunk.c)
+add_library(${PROJECT_NAME} SHARED thunk.c thunk_gate.c)
 target_sources(${PROJECT_NAME} PRIVATE
-  arch/${CMAKE_SYSTEM_PROCESSOR}/thunk_machdep.c)
+  arch/${CMAKE_SYSTEM_PROCESSOR}/thunk_machdep.c
+  arch/${CMAKE_SYSTEM_PROCESSOR}/gate_thunk.S
+  arch/${CMAKE_SYSTEM_PROCESSOR}/gate_machdep.c)
 
 enable_testing()
 add_subdirectory(test)

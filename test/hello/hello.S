@@ -27,6 +27,7 @@
  * it just returns a read-only pointer to the data.
  */
 THUNK(hello_thunk)
+THUNK_PP_LABEL(hello_thunk, data_offset)
 1:  // Patch #1 data start offset
     adr     c0, #0
     // Compute remaining size
@@ -41,8 +42,6 @@ THUNK(hello_thunk)
     // INVARIANT: no capabilities leaked
     ret
 ENDTHUNK(hello_thunk)
-
-THUNK_DEF_PATCH_POINT(hello_thunk, data_offset, 1b)
 
 #else
 #error "Unsupported architecture"

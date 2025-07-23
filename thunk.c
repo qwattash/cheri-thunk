@@ -9,6 +9,7 @@
  * Projects Agency (DARPA) Contract No. FA8750-24-C-B047 ("DEC").
  */
 
+#include <cheriintrin.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -42,6 +43,7 @@ thunk_object_t
 thunk_malloc(struct thunk_class *tc)
 {
         struct thunk_metaclass *mc = tc->mc;
+        const size_t code_size = thunk_code_size(mc);
         thunk_object_t obj = THUNK_NULLOBJ;
         uintptr_t thunk_buf;
         uintptr_t obj_data;
@@ -49,13 +51,13 @@ thunk_malloc(struct thunk_class *tc)
 
         // XXX tc should be sealed and should be authorised here
 
-        assert(tc->object_size > mc->code_size &&
+        assert(tc->object_size > code_size &&
             "Invalid thunk class, code size > object size");
         /* object_size must already include any representability padding */
         thunk_buf = (uintptr_t)thunk_xmalloc(tc->object_size);
 
-        obj_code = (thunk_jit_t)cheri_bounds_set(thunk_buf, tc->mc->code_size);
-        obj_data = thunk_buf + cheri_representable_length(tc->mc->code_size);
+        obj_code = (thunk_jit_t)cheri_bounds_set(thunk_buf, code_size);
+        obj_data = thunk_buf + cheri_representable_length(code_size);
         obj_data = cheri_bounds_set_exact(obj_data,
             thunk_buf + cheri_length_get(thunk_buf) - obj_data);
         if (thunk_compile(obj_code, tc)) {
@@ -94,4 +96,10 @@ thunk_level_malloc(size_t size, thunk_level_t level)
         }
 
         return (mem);
+}
+
+void
+thunk_level_free(void *ptr)
+{
+        free(ptr);
 }

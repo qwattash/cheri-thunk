@@ -8,35 +8,28 @@
  * Technology), and Capabilities Limited under Defense Advanced Research
  * Projects Agency (DARPA) Contract No. FA8750-24-C-B047 ("DEC").
  */
+#pragma once
 
 #include <machine/asm.h>
 
 #include "arch/thunk-patch.h"
 
 /* lifted from rtld c18n trampoline generation */
-#define	__CONCAT(a, b) a ## b
-#define	_CONCAT(a, b) __CONCAT(a, b)
-
-#define	_THUNK_END_SYM(tname) _CONCAT(end_, _THUNK_SYM(tname))
 
 #define	THUNK(tname)                                        \
         .section .rodata;                                   \
         .globl _THUNK_SYM(tname);                           \
         .type _THUNK_SYM(tname),#object; _THUNK_SYM(tname):
 
-#define	ENDTHUNK(tname)                                                 \
-        _THUNK_END_SYM(tname):                                          \
-        EEND(_THUNK_SYM(tname));                                        \
-        .section .rodata;                                               \
-        .globl _THUNK_SZ_SYM(tname);                                    \
-        .align 3;                                                       \
-        .type _THUNK_SZ_SYM(tname),#object;                             \
-        .size _THUNK_SZ_SYM(tname), 8;                                  \
-        _THUNK_SZ_SYM(tname):                                           \
-        .quad _THUNK_END_SYM(tname) - _THUNK_SYM(tname)
+#define	ENDTHUNK(tname)                                  \
+        .global _THUNK_END_SYM(tname);                   \
+        .type _THUNK_END_SYM(tname),#object;             \
+        .size _THUNK_END_SYM(tname), 1;                  \
+        _THUNK_END_SYM(tname):                           \
+        EEND(_THUNK_SYM(tname));
 
-#define	THUNK_DEF_PATCH_POINT(tname, name, label)                      \
-        .section .rodata; .globl _THUNK_PATCH(tname, name); .align 2;  \
-        .type _THUNK_PATCH(tname, name),#object;                       \
-        .size _THUNK_PATCH(tname, name), 4;                            \
-        _THUNK_PATCH(tname, name): .word label - _THUNK_SYM(tname)
+#define	THUNK_PP_LABEL(tname, label)                     \
+        .globl _THUNK_PATCH(tname, label);               \
+        .type _THUNK_PATCH(tname, label),#object;        \
+        .size _THUNK_PATCH(tname, label), 4;             \
+        _THUNK_PATCH(tname, label):

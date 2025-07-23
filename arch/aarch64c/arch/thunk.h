@@ -8,8 +8,11 @@
  * Technology), and Capabilities Limited under Defense Advanced Research
  * Projects Agency (DARPA) Contract No. FA8750-24-C-B047 ("DEC").
  */
+#pragma once
 
 #include <stdint.h>
+
+struct thunk_class;
 
 /**
  * Machine-dependent types that represents thunk code buffers.
@@ -28,7 +31,7 @@ enum aarch64_thunk_reloc_type {
  */
 struct aarch64_thunk_reloc {
         enum aarch64_thunk_reloc_type type;
-        size_t offset;
+        ptraddr_t addr;
 };
 
 typedef struct aarch64_thunk_reloc thunk_reloc_t;
@@ -37,13 +40,14 @@ typedef struct aarch64_thunk_reloc thunk_reloc_t;
  * Resolved data associated to a patch point descriptor.
  */
 union aarch64_thunk_reloc_data {
-        int32_t i32;
+        uint16_t u16;
         uint32_t u32;
-        uint64_t u64;
-        ptraddr_t addr;
 };
 
 typedef union aarch64_thunk_reloc_data thunk_reloc_data_t;
+
+#define THUNK_REL_INITIALIZER(rtype, rpos)  \
+        { .type = (THUNK_REL_##rtype), .addr = (rpos) }
 
 /**
  * Internal helper to wrap thunk a capability into a thunk_object_t.
@@ -55,3 +59,12 @@ thunk_arch_seal_object(uintptr_t obj_ptr)
 {
         return ((void *)cheri_sentry_create(obj_ptr | 1));
 }
+
+/**
+ * Define the maximum permission allowed on the root thunk token.
+ */
+#define THUNK_TOKEN_MAX_PERMS                             \
+        (CHERI_PERM_GLOBAL | CHERI_PERM_STORE_LOCAL_CAP | \
+         CHERI_PERM_LOAD | CHERI_PERM_STORE |             \
+         CHERI_PERM_LOAD_CAP | CHERI_PERM_STORE_CAP |     \
+         CHERI_PERM_MUTABLE_LOAD)

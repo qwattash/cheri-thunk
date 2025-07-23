@@ -33,5 +33,7 @@ main(int argc, char *argv[])
             "Thunk enforced wrong permission");
         assert(strcmp(data, "Hello World!") == 0 && "Invalid thunk data");
 
+        hello_destroy(h);
+
         return (0);
 }

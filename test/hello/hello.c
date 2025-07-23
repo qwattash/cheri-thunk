@@ -65,16 +65,15 @@ hello_init()
         hello_meta = thunk_level_malloc(sizeof(*hello_meta) +
             HELLO_NRELOCS * sizeof(thunk_reloc_t), THUNK_LEVEL_PRIVATE);
         hello_meta->template = THUNK_TEMPLATE(hello_thunk);
-        hello_meta->code_size = THUNK_TEMPLATE_SIZE(hello_thunk);
+        hello_meta->template_end = THUNK_TEMPLATE_END(hello_thunk);
         hello_meta->relocs_count = HELLO_NRELOCS;
         // Init thunk relocation descriptors
 #if defined(__aarch64__)
         hello_meta->relocs[0].type = THUNK_REL_ADR;
-        hello_meta->relocs[0].offset = THUNK_PATCH_POINT(hello_thunk,
-            data_offset);
+        hello_meta->relocs[0].addr = THUNK_PP(hello_thunk, data_offset);
 #endif
 
-        data_offset = cheri_align_up(hello_meta->code_size, data_align);
+        data_offset = cheri_align_up(thunk_code_size(hello_meta), data_align);
 
         hello_class = thunk_level_malloc(sizeof(*hello_class) +
             HELLO_NRELOCS * sizeof(thunk_reloc_data_t), THUNK_LEVEL_PRIVATE);
@@ -86,8 +85,7 @@ hello_init()
         hello_class->dtor = NULL;
         // Bind relocations to the actual values for this class.
 #if defined(__aarch64__)
-        // XXX assert representable
-        hello_class->reloc_data[0].i32 = data_offset;
+        hello_class->reloc_data[0].u32 = data_offset;
 #endif
 
 }
