@@ -23,8 +23,6 @@
 #define static_assert _Static_assert
 #endif
 
-typedef const uint8_t* thunk_token_t;
-
 /**
  * Private type representing a thunk object.
  *

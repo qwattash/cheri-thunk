@@ -13,7 +13,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-#include "thunk.h"
+#include "thunk-gate.h"
 #include "arch/thunk-patch.h"
 
 THUNK_DECL_TEMPLATE(gate);

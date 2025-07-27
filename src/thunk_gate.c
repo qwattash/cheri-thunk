@@ -47,6 +47,29 @@ static TAILQ_HEAD(thunk_gate_head, thunk_gate_class) gate_head =
     TAILQ_HEAD_INITIALIZER(gate_head);
 
 /**
+ * Validate and unwrap the gate entrypoint.
+ *
+ * If validation fails, NULL is returned.
+ */
+static inline
+thunk_gate_fn_t
+thunk_gate_unwrap(thunk_gate_t gate)
+{
+#ifdef THUNK_AUTH_MODE_PERMS
+        void *entry = thunk_object_unwrap(gate.obj);
+
+        if (cheri_is_sealed(entry) &&
+            (cheri_perms_get(entry) & CHERI_PERM_SW_THUNK)) {
+                return (entry);
+        }
+
+        return (NULL);
+#else
+#error "Unsupported thunk authentication mode"
+#endif
+}
+
+/**
  * Allocate a new chunk of token space.
  *
  * The function returns the root token for the token space.
@@ -76,43 +99,39 @@ token_space_free(thunk_token_t token)
 }
 
 
-thunk_gate_t
-thunk_gate_create(size_t size)
+thunk_gate_class_t
+thunk_gateclass_create(size_t size)
 {
         const size_t data_align = ~cheri_representable_alignment_mask(size) + 1;
         size_t data_offset;
         struct thunk_gate_class *gate_class;
-        struct thunk_class *tc;
-        thunk_token_t root_token;
-        thunk_gate_t gate = THUNK_NULLGATE;
+        struct thunk_class *tclass;
 
         data_offset = cheri_align_up(thunk_code_size(thunk_gate_meta),
             data_align);
 
+        // XXX really local?
         gate_class = thunk_level_malloc(sizeof(*gate_class) +
             thunk_gate_meta->relocs_count * sizeof(thunk_reloc_data_t),
             THUNK_LEVEL_PRIVATE);
         if (gate_class == NULL)
-                return (gate);
+                return (THUNK_NULL_GATECLASS);
 
         gate_class->requested_size = size;
         gate_class->token_space = token_space_alloc(size);
         if (gate_class->token_space == NULL) {
                 thunk_level_free(gate_class);
-                return (gate);
+                return (THUNK_NULL_GATECLASS);
         }
-        root_token = cheri_perms_and(gate_class->token_space,
-                                     THUNK_TOKEN_MAX_PERMS);
-        root_token = cheri_bounds_set_exact(root_token, size);
 
-        tc = &gate_class->thunk_class;
-        tc->mc = thunk_gate_meta;
-        tc->object_size = cheri_representable_length(data_offset + size);
-        tc->ctor = NULL;
-        tc->dtor = NULL;
+        tclass = &gate_class->thunk_class;
+        tclass->mc = thunk_gate_meta;
+        tclass->object_size = cheri_representable_length(data_offset + size);
+        tclass->ctor = NULL;
+        tclass->dtor = NULL;
 
-        thunk_arch_gate_reloc_data_offset(tc, data_offset);
-        thunk_arch_gate_reloc_token_space(tc, root_token);
+        thunk_arch_gate_reloc_data_offset(tclass, data_offset);
+        thunk_arch_gate_reloc_token_space(tclass, gate_class->token_space);
 
         pthread_mutex_lock(&gate_head_mutex);
         TAILQ_INSERT_HEAD(&gate_head, gate_class, gate_list);
@@ -120,16 +139,28 @@ thunk_gate_create(size_t size)
 
         // XXX we can wrap the gate class into another gate thunk
         // which can be unsealed using a special token we keep for ourselves.
-        gate._class = &__builtin_no_change_bounds(gate_class->thunk_class);
-        gate.root_token = root_token;
-
-        return (gate);
+        return ((thunk_gate_class_t){ .class = gate_class });
 }
 
 void
-thunk_gate_destroy(thunk_gate_t gate)
+thunk_gateclass_destroy(thunk_gate_class_t gc)
 {
 
+}
+
+thunk_token_t
+thunk_gateclass_token(thunk_gate_class_t gc)
+{
+        // XXX auth gateclass
+        const struct thunk_gate_class *gate_class = gc.class;
+        thunk_token_t root_token;
+
+        root_token = cheri_perms_and(gate_class->token_space,
+            THUNK_TOKEN_MAX_PERMS);
+        root_token = cheri_bounds_set_exact(root_token,
+            gate_class->requested_size);
+
+        return (root_token);
 }
 
 /**
@@ -140,30 +171,34 @@ thunk_gate_destroy(thunk_gate_t gate)
  *
  * We may want to deal with initialisation as well.
  */
-thunk_object_t
-thunk_gate_alloc_object(thunk_gate_t gate)
+thunk_gate_t
+thunk_gate_alloc(thunk_gate_class_t gc)
 {
-        return (thunk_malloc(gate._class));
+        // XXX auth gateclass
+        struct thunk_gate_class *gate_class = gc.class;
+        thunk_gate_t gate;
+
+        gate.obj = thunk_malloc(&gate_class->thunk_class);
+        return (gate);
 }
 
 void
-thunk_gate_free_object(thunk_gate_t gate, thunk_object_t obj)
+thunk_gate_free(thunk_gate_class_t gc, thunk_gate_t gate)
 {
 
 }
 
-bool thunk_gate_auth(thunk_object_t gobj)
+void *
+thunk_gate_invoke(thunk_gate_t gate, thunk_token_t tok)
 {
-#ifdef THUNK_AUTH_MODE_PERMS
-        void *inner = thunk_object_unwrap(gobj);
+        thunk_gate_fn_t gate_entry = thunk_gate_unwrap(gate);
 
-        if (cheri_is_sealed(inner) &&
-            (cheri_perms_get(inner) & CHERI_PERM_SW_THUNK)) {
-                return (true);
-        }
+        assert(gate_entry != NULL && "Invalid thunk gate");
+        return (gate_entry(tok));
+}
 
-        return (false);
-#else
-#error "Unsupported thunk authentication mode"
-#endif
+bool
+thunk_gate_auth(thunk_gate_t gate)
+{
+        return (thunk_gate_unwrap(gate) != NULL);
 }
